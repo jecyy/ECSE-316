@@ -3,7 +3,7 @@ import re
 import socket
 class Packet(object):
 	def __init__(self,name,type):
-		self.name = byte(self.formName(name.split('.')))
+		self.name = bytes(self.formName(name.split('.')))
 		self.type = bytes([typeTransform(type)])
 	def formName(self,names):
 		formatName = []
