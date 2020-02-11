@@ -17,11 +17,15 @@ class Packet(object):
 		return typemap[type]
 	def generateData(self):
 		return b'\x82\x7a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00'+self.name+b'\x00\x00'+self.type+b'\x00\x01'
+
 class PacketParser(object):
 	def __init__(self,response,data):
 		self.IDVerification = response[:2] == data[:2]
-		self.TTL = response[len(data)+8:len(data)+10]
+		self.TTL = self.calTTL(response[len(data)+8:len(data)+10])
 		self.autority = 'auth' if response[2] & 4 else 'non-auth'
+
+	def calTTL(self,TTLbytes):
+		return TTLbytes[0]*(16^2)+TTLbytes[1]
 parser = argparse.ArgumentParser(description='DNS client')
 parser.add_argument('-t', type=int, default=5,help='time out of retransmit')
 parser.add_argument('-r', type=int, default=3,help='max-retries')
@@ -47,9 +51,25 @@ print('Request type:',type)
 data = packet.generateData()
 print(data)
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.settimeout(args.t)
 s.sendto(data,(args.server[1:],args.p))
-response,serverAddr = s.recvfrom(1024)
+response = b''
+serverAddr = ()
+numOfTries = 0
+while response == b'' or response is None:
+	try:
+		response,serverAddr = s.recvfrom(1024)
+	except socket.timeout as e:
+		if numOfTries < args.t:
+			print('not receiving,resend the message')
+			s.sendto(data,(args.server[1:],args.p))
+			numOfTries = numOfTries + 1
+		else:
+			print('ERROR	message transfer:the number of resend the message has been used up')
+			exit()
 print(response)
+parsedResponse = PacketParser(response,data)
+print(parsedResponse.IDVerification,parsedResponse.TTL,parsedResponse.autority)
 if serverAddr != (args.server[1:],args.p):
 	print('ERROR	unexpect response:response from wrong server')
 	exit()
