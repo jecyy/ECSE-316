@@ -46,7 +46,7 @@ print('DNS sending request for:',args.name)
 print('Server:',args.server[1:])
 print('Request type:',type)
 data = packet.generateData()
-print(data)
+#print(data)
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.settimeout(args.t)
 s.sendto(data,(args.server[1:],args.p))
@@ -65,7 +65,7 @@ while response == b'' or response is None:
 		else:
 			print('ERROR	message transfer:the number of resend the message has been used up')
 			exit()
-print(response)
+#print(response)
 if serverAddr != (args.server[1:],args.p):
 	print('ERROR	unexpect response:response from wrong server')
 	exit()
@@ -85,6 +85,7 @@ elif response[3] & 5:
 	print('ERROR	Refused: the name server refuses to perform the requested operation for policy reasons')
 	exit()
 parsedResponse = PacketParser(response,data)
+print('***Answer Section (',len(parsedResponse.Ans),'records)***')
 for i in parsedResponse.Ans:
 	if i['type'] == 'A':
 		print('IP	',i['ipAddress'],'	', i['TTL'],'	',parsedResponse.authority)
@@ -94,6 +95,7 @@ for i in parsedResponse.Ans:
 		print('NS	',i['serverName'],'	',i['TTL'],'	',parsedResponse.authority)
 	elif i['type'] == 'CNAME':
 		print('CNAME	',i['alias'],'	',i['TTL'],'	',parsedResponse.authority)
+print('***Additonal Section (',len(parsedResponse.Add),'records)***')
 for i in parsedResponse.Add:
 	if i['type'] == 'A':
 		print('IP	',i['ipAddress'],'	', i['TTL'],'	',parsedResponse.authority)

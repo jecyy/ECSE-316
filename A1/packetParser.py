@@ -32,24 +32,23 @@ class PacketParser(object):
 	def parseName(self,b):
 		qname = ''
 		for i in b:
-			if i in range(48,58) or i in range(65,91) or i in range(97,123):
+			if i in range(33,58) or i in range(65,91) or i in range(97,123):
 				qname = qname + chr(i)
 			else:
 				qname = qname + '.'
 		return qname
 	def appendAnswer(self,response,data):
 		if self.numOfAns + self.numAdd == 0:
-			print('no valid answer')
+			print('not found')
 			exit()
 		i = len(data)
 		scanner = 0
 		def parseAnswer(answers,i):
 			answer = {}
 			b = []
-			if response[i] & 192:
+			if response[i] >= 192:
 				scanner = self.calNum(response[i:i+2])-192*(16^(2))
-				print(scanner)
-				while response[scanner] & 192:
+				while response[scanner] >= 192:
 					scanner = self.calNum(response[scanner:scanner+2])-192*(16^(2))
 				i = i + 2
 				while response[scanner] != 0:
@@ -57,10 +56,18 @@ class PacketParser(object):
 					scanner = scanner + 1
 			else:
 				scanner = i
-				while response[scanner] != 0:
+				while response[scanner] != 0 and not response[scanner] >= 192:
 					b.append(response[scanner])
 					scanner = scanner + 1
-				i = scanner + 1
+				if response[scanner] == 0:
+					i = scanner + 1
+				else:
+					i =	scanner + 2
+					while response[scanner] >= 192:
+						scanner = self.calNum(response[scanner:scanner+2])-192*(16^(2))
+					while response[scanner] != 0:
+						b.append(response[scanner])
+						scanner = scanner + 1
 			answer['qname'] = self.parseName(b[1:])
 			answer['type'] = self.calType(response[i+1])
 			i = i+4
@@ -74,9 +81,9 @@ class PacketParser(object):
 				answers.append(answer)
 			elif answer['type'] == 'NS':
 				b = []
-				if response[i] & 192:
+				if response[i] >= 192:
 					scanner = calNum(response[i:i+2])-192*(16^(2))
-					while response[scanner] & 192:
+					while response[scanner] >= 192:
 						scanner = calNum(response[scanner:scanner+2])-192*(16^(2))
 					i = i + 2
 					while response[scanner] != 0:
@@ -84,17 +91,25 @@ class PacketParser(object):
 						scanner = scanner + 1
 				else:
 					scanner = i
-					while response[scanner] != 0:
+					while response[scanner] != 0 and not response[scanner] >= 192:
 						b.append(response[scanner])
 						scanner = scanner + 1
-					i = scanner + 1
+					if response[scanner] == 0:
+						i = scanner + 1
+					else:
+						i =	scanner + 2
+						while response[scanner] >= 192:
+							scanner = self.calNum(response[scanner:scanner+2])-192*(16^(2))
+						while response[scanner] != 0:
+							b.append(response[scanner])
+							scanner = scanner + 1
 				answer['serverName'] = self.parseName(b[1:])
 				answers.append(answer)
 			elif answer['type'] == 'CNAME':
 				b = []
-				if response[i] & 192:
+				if response[i] >= 192:
 					scanner = self.calNum(response[i:i+2])-192*(16^(2))
-					while response[scanner] & 192:
+					while response[scanner] >= 192:
 						scanner = self.calNum(response[scanner:scanner+2])-192*(16^(2))
 					i = i + 2
 					while response[scanner] != 0:
@@ -102,19 +117,28 @@ class PacketParser(object):
 						scanner = scanner + 1
 				else:
 					scanner = i
-					while response[scanner] != 0:
+					while response[scanner] != 0 and not response[scanner] >= 192:
 						b.append(response[scanner])
 						scanner = scanner + 1
-					i = scanner + 1
+					if response[scanner] == 0:
+						i = scanner + 1
+					else:
+						i =	scanner + 2
+						while response[scanner] >= 192:
+							#print(response[scanner])
+							scanner = self.calNum(response[scanner:scanner+2])-192*(16^(2))
+						while response[scanner] != 0:
+							b.append(response[scanner])
+							scanner = scanner + 1
 				answer['alias'] = self.parseName(b[1:])
 				answers.append(answer)
 			elif answer['type'] == 'MX':
 				answer['preference'] = self.calNum(response[i:i+2])
 				i = i+2
 				b = []
-				if response[i] & 192:
+				if response[i] >= 192:
 					scanner = self.calNum(response[i:i+2])-192*(16^(2))
-					while response[scanner] & 192:
+					while response[scanner] >= 192:
 						scanner = self.calNum(response[scanner:scanner+2])-192*(16^(2))
 					i = i + 2
 					while response[scanner] != 0:
@@ -122,10 +146,18 @@ class PacketParser(object):
 						scanner = scanner + 1
 				else:
 					scanner = i
-					while response[scanner] != 0:
+					while response[scanner] != 0 and not response[scanner] >= 192:
 						b.append(response[scanner])
 						scanner = scanner + 1
-					i = scanner + 1
+					if response[scanner] == 0:
+						i = scanner + 1
+					else:
+						i =	scanner + 2
+						while response[scanner] >= 192:
+							scanner = self.calNum(response[scanner:scanner+2])-192*(16^(2))
+						while response[scanner] != 0:
+							b.append(response[scanner])
+							scanner = scanner + 1
 				answer['exchange'] = self.parseName(b[1:])
 				answers.append(answer)
 			else:
@@ -136,13 +168,16 @@ class PacketParser(object):
 			i = parseAnswer(self.Ans,i)
 			#print(i)
 		for r in range(self.numAu):
-			if response[i] & 192:
+			if response[i] >= 192:
 				i = i + 2
 			else:
 				scanner = i
-				while response[scanner] != 0:
+				while response[scanner] != 0 and not response[scanner] >= 192:
 					scanner = scanner + 1
-				i = scanner + 1
+				if response[scanner] == 0:
+					i = scanner + 1
+				else:
+					i =	scanner + 2
 			i = i+8
 			num = self.calNum(response[i:i+2])
 			i = i+ num + 2
