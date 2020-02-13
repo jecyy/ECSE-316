@@ -1,6 +1,7 @@
 import argparse
 import re
 import socket
+from packetParser import PacketParser
 class Packet(object):
 	def __init__(self,name,type):
 		self.name = bytes(self.formName(name.split('.')))
@@ -18,14 +19,9 @@ class Packet(object):
 	def generateData(self):
 		return b'\x82\x7a\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00'+self.name+b'\x00\x00'+self.type+b'\x00\x01'
 
-class PacketParser(object):
-	def __init__(self,response,data):
-		self.IDVerification = response[:2] == data[:2]
-		self.TTL = self.calTTL(response[len(data)+8:len(data)+10])
-		self.autority = 'auth' if response[2] & 4 else 'non-auth'
+				
 
-	def calTTL(self,TTLbytes):
-		return TTLbytes[0]*(16^2)+TTLbytes[1]
+
 parser = argparse.ArgumentParser(description='DNS client')
 parser.add_argument('-t', type=int, default=5,help='time out of retransmit')
 parser.add_argument('-r', type=int, default=3,help='max-retries')
@@ -43,6 +39,7 @@ if args.mx and args.ns:
 if not re.match(r'^@\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}$',args.server):
 	print('ERROR	invalid argument:format of server address is wrong')
 	exit()
+
 type = 'NS' if args.ns else 'MX' if args.mx else 'A'
 packet = Packet(args.name,type)
 print('DNS sending request for:',args.name)
@@ -56,6 +53,7 @@ s.sendto(data,(args.server[1:],args.p))
 response = b''
 serverAddr = ()
 numOfTries = 0
+
 while response == b'' or response is None:
 	try:
 		response,serverAddr = s.recvfrom(1024)
@@ -68,8 +66,40 @@ while response == b'' or response is None:
 			print('ERROR	message transfer:the number of resend the message has been used up')
 			exit()
 print(response)
-parsedResponse = PacketParser(response,data)
-print(parsedResponse.IDVerification,parsedResponse.TTL,parsedResponse.autority)
 if serverAddr != (args.server[1:],args.p):
 	print('ERROR	unexpect response:response from wrong server')
 	exit()
+if response[3] & 1:
+	print('ERROR	Format error: the name server was unable to interpret the query')
+	exit()
+elif response[3] & 2:
+	print('ERROR	Server failure: the name server was unable to process this query due to a problem with the name server')
+	exit()
+elif response[3] & 3:
+	print('ERROR	Name error: meaningful only for responses from an authoritative name server, this code signifies that the domain name referenced in the query does not exist')
+	exit()
+elif response[3] & 4:
+	print('ERROR	Not implemented: the name server does not support the requested kind of query')
+	exit()
+elif response[3] & 5:
+	print('ERROR	Refused: the name server refuses to perform the requested operation for policy reasons')
+	exit()
+parsedResponse = PacketParser(response,data)
+for i in parsedResponse.Ans:
+	if i['type'] == 'A':
+		print('IP	',i['ipAddress'],'	', i['TTL'],'	',parsedResponse.authority)
+	elif i['type'] == 'MX':
+		print('MX	',i['exchange'],'	',i['preference'],'	',i['TTL'],'	',parsedResponse.authority)
+	elif i['type'] == 'NS':
+		print('NS	',i['serverName'],'	',i['TTL'],'	',parsedResponse.authority)
+	elif i['type'] == 'CNAME':
+		print('CNAME	',i['alias'],'	',i['TTL'],'	',parsedResponse.authority)
+for i in parsedResponse.Add:
+	if i['type'] == 'A':
+		print('IP	',i['ipAddress'],'	', i['TTL'],'	',parsedResponse.authority)
+	elif i['type'] == 'MX':
+		print('MX	',i['exchange'],'	',i['preference'],'	',i['TTL'],'	',parsedResponse.authority)
+	elif i['type'] == 'NS':
+		print('NS	',i['serverName'],'	',i['TTL'],'	',parsedResponse.authority)
+	elif i['type'] == 'CNAME':
+		print('CNAME	',i['alias'],'	',i['TTL'],'	',parsedResponse.authority)
